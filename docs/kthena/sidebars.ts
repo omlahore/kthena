@@ -56,11 +56,6 @@ const sidebars: SidebarsConfig = {
             'user-guide/modelserving-plugin-framework',
           ],
         },
-        {
-          type: 'category',
-          label: 'Integrations',
-          items: ['user-guide/dynamo-integration', 'user-guide/llm-d-router-integration'],
-        },
         'user-guide/multi-node-inference',
         {
           type: 'doc',
@@ -89,6 +84,7 @@ const sidebars: SidebarsConfig = {
             'user-guide/rate-limit',
             "user-guide/gateway-api-support",
             'user-guide/gateway-inference-extension-support',
+            'user-guide/llm-d-router-integration',
           ],
         },
         {
