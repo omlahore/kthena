@@ -27,9 +27,7 @@ import (
 	"github.com/volcano-sh/kthena/pkg/model-serving-controller/datastore"
 )
 
-// deletedGroupStore reproduces the window the bug needs: the ServingGroup still
-// reads as Running, but the ModelServing has already been removed from the
-// store by DeleteModelServing/DeleteServingGroup, so the status update fails.
+// deletedGroupStore keeps the group Running while the status update fails.
 type deletedGroupStore struct {
 	datastore.Store
 	updateCalls int
@@ -45,10 +43,6 @@ func (s *deletedGroupStore) UpdateServingGroupStatus(name types.NamespacedName, 
 }
 
 // A failed markPodUnavailable must not leave the pod stuck in graceMap.
-// handlePodAfterGraceTime is the only thing that clears the key, and it is not
-// started on the error path, so a leftover entry makes every later event for
-// that pod return early at the LoadOrStore check and the pod is never
-// recovered until the controller restarts.
 func TestHandleErrorPodClearsGraceMapWhenMarkUnavailableFails(t *testing.T) {
 	const (
 		namespace = "default"
@@ -80,8 +74,6 @@ func TestHandleErrorPodClearsGraceMapWhenMarkUnavailableFails(t *testing.T) {
 		"graceMap still holds %s after the error, so the pod can never be recovered",
 		getPodGracePeriodKey(failedPod))
 
-	// The next event for the same pod must be able to retry rather than
-	// returning early because a stale key is still present.
 	err = controller.handleErrorPod(ms, groupName, failedPod)
 	require.Error(t, err, "a later event should retry, not short-circuit on a stale graceMap key")
 	assert.Equal(t, 2, store.updateCalls, "the retry should have reached the store again")
