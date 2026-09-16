@@ -132,6 +132,7 @@ func TestReconcileRecreatesModelRouteWhenModelRequestNameChanges(t *testing.T) {
 
 	kubeClient := fake.NewClientset()
 	kthenaClient := kthenafake.NewSimpleClientset()
+	updateOnlyStatusOnStatusUpdate(kthenaClient)
 	controller := NewModelBoosterController(kubeClient, kthenaClient)
 	go controller.Run(ctx, 1)
 	assert.True(t, waitForControllerCacheSync(controller), "controller informers did not sync")
@@ -346,6 +347,24 @@ func waitForControllerCacheSync(controller *ModelBoosterController) bool {
 			controller.podsInformer.HasSynced() &&
 			controller.modelServersInformer.HasSynced() &&
 			controller.modelRoutesInformer.HasSynced()
+	})
+}
+
+// updateOnlyStatusOnStatusUpdate makes ModelBooster UpdateStatus keep the stored spec, as the API server does.
+func updateOnlyStatusOnStatusUpdate(client *kthenafake.Clientset) {
+	client.PrependReactor("update", "modelboosters", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		update := action.(k8stesting.UpdateAction)
+		if update.GetSubresource() != "status" {
+			return false, nil, nil
+		}
+		incoming := update.GetObject().(*workload.ModelBooster)
+		stored, err := client.Tracker().Get(update.GetResource(), incoming.Namespace, incoming.Name)
+		if err != nil {
+			return true, nil, err
+		}
+		updated := stored.(*workload.ModelBooster).DeepCopy()
+		updated.Status = incoming.Status
+		return true, updated, client.Tracker().Update(update.GetResource(), updated, incoming.Namespace)
 	})
 }
 
